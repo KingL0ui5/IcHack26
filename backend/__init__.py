@@ -12,6 +12,11 @@ import joblib
 import lightgbm as lgb
 from functools import lru_cache
 from backend.generalpv.scale_metrics import normalize_value
+import torch 
+import logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+torch.set_num_threads(1) # Prevents CPU contention on Render
+
 dotenv.load_dotenv()
 
 # Maximum distance (in meters) from closest opponent for carry to be viable
@@ -246,6 +251,53 @@ def start_app():
         response.headers.setdefault("Access-Control-Allow-Headers", "Content-Type, Authorization")
         response.headers.setdefault("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         return response
+
+    print("Initializing and loading ML models into memory... This may take a moment.")
+    # Pre-load Expected Threat Model
+    try:
+        if MODEL_MODE == "nn":
+            from backend.generalpv.expectedThreatModelNN import ExpectedThreatModelNN
+            app.xT_model = ExpectedThreatModelNN()
+            app.xT_model.load_model()
+        else:
+            from backend.generalpv.expectedThreatModel import ExpectedThreatModel
+            app.xT_model = ExpectedThreatModel(skip_training=True)
+            app.xT_model.load_model(os.path.join(os.path.dirname(__file__), "models/xt_nn_model.pkl"))
+    except Exception as e:
+        logging.error(f"Error loading xT model: {e}")
+        app.xT_model = None
+
+    # Pre-load Expected Goal Model
+    try:
+        from backend.generalpv.xg import ExpectedGoalModel
+        app.xg_model = ExpectedGoalModel(skip_training=True)
+        xg_model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models/xg_model_360.pkl")
+        app.xg_model.load_model(xg_model_path)
+    except Exception as e:
+        logging.error(f"Error loading xG model: {e}")
+        app.xg_model = None
+
+    # Pre-load Carry Model
+    try:
+        from backend.generalpv.carryModel import CarryModel
+        app.carry_model = CarryModel()
+    except Exception as e:
+        logging.error(f"Error loading Carry model: {e}")
+        app.carry_model = None
+
+    # Pre-load Pass Score Model
+    try:
+        from backend.generalpv.passScoreModel import PassScoreModel
+        app.pass_score_model = PassScoreModel()
+        app.pass_score_model.load_models()
+    except Exception as e:
+        print(f"Error loading Pass Score model: {e}")
+        app.pass_score_model = None
+        
+    logging.info("All models loaded successfully!")
+
+
+
     @app.route("/test", methods=["POST"])
     def test():
         """
@@ -307,42 +359,26 @@ def start_app():
                 # keeper for team in entry [1]
                 data_dict[f'keeper_2_team'] = 0  # defender keeper
 
-                try:
-                    if MODEL_MODE == "nn":
-                        from backend.generalpv.expectedThreatModelNN import ExpectedThreatModelNN
-                        xT = ExpectedThreatModelNN()
-                        xT.load_model()
-                    else:
-                        from backend.generalpv.expectedThreatModel import ExpectedThreatModel
-                        xT = ExpectedThreatModel(skip_training=True)
-                        xT.load_model(os.path.join(os.path.dirname(
-                            __file__), "models/xt_nn_model.pkl"))
+                if app.xT_model is None:
+                    return {"error": "xT Model failed to load on startup"}, 500
+                    
+                pxT_value = app.xT_model.calculate_expected_threat(**data_dict)
 
-                except Exception as e:
-                    import traceback
-                    traceback.print_exc()
-                    return {"error": f"Model loading failed: {e}"}, 500
-
-                pxT_value = xT.calculate_expected_threat(**data_dict)
-
-                # Generate heatmap if supported (NN model only)
                 heatmap_data = None
-                if MODEL_MODE == "nn" and hasattr(xT, 'generate_heatmap'):
+                if MODEL_MODE == "nn" and hasattr(app.xT_model, 'generate_heatmap'):
                     try:
-                        # Use 48x32 grid for higher resolution
-                        heatmap_data = xT.generate_heatmap(
+                        heatmap_data = app.xT_model.generate_heatmap(
                             grid_size=(48, 32), **data_dict)
                     except Exception as e:
                         print(f"Heatmap generation failed: {e}")
                         heatmap_data = None
-
-                print("Predicted xT:", pxT_value)
 
                 response_data = {
                     "xT": pxT_value,
                     "heatmap": heatmap_data
                 }
                 return json.dumps(response_data)
+                
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -425,31 +461,24 @@ def start_app():
             data_dict['keeper2_team'] = 0  # defender keeper
 
             # ---------------- data processing done for required dict format: data_dict----------------#
+            # saftey check 
+            if app.xg_model is None or app.pass_score_model is None or app.carry_model is None or app.xt_model is None:
+                return {"error": "Models failed to load on server startup."}, 500
+            
 
             actions = {}
 
-            # SHOOT MODEL
-            from backend.generalpv.xg import ExpectedGoalModel
-            xg_model = ExpectedGoalModel(skip_training=True)
-            model_path = os.path.join(os.path.dirname(os.path.dirname(
-                __file__)), "models/xg_model_360.pkl")
-            xg_model.load_model(model_path)
-            xg_value = xg_model.calculate_expected_goal(**data_dict)
+            # SHOOT MODEL 
+            xg_value = app.xg_model.calculate_expected_goal(**data_dict)
             actions["shoot"] = {"xG": normalize_value("xG", xg_value)}
 
-            # CARRY MODEL
-            from backend.generalpv.carryModel import CarryModel
-            carry_model = CarryModel()
-
-            # Check if closest opponent is within MIN_CARRY_DIST - if so, carry is not viable
-            closest_opponent_dist = get_closest_opponent_distance(
-                ball_position, defenders)
+            # CARRY MODEL 
+            closest_opponent_dist = get_closest_opponent_distance(ball_position, defenders)
 
             if closest_opponent_dist > MAX_CARRY_DIST:
-                # Opponent too close - carry not viable
                 actions["carry"] = {"xT": None}
-            elif carry_model.is_trained:
-                carry_result = carry_model.calculate_carry_score(data_dict)
+            elif app.carry_model and app.carry_model.is_trained:
+                carry_result = app.carry_model.calculate_carry_score(data_dict)
                 if carry_result:
                     actions["carry"] = {
                         "xT": carry_result["predicted_xt"],
@@ -461,19 +490,13 @@ def start_app():
             else:
                 actions["carry"] = {"xT": None}
 
-            # PASS MODEL - Using PassScoreModel for comprehensive evaluation
-            from backend.generalpv.passScoreModel import PassScoreModel
-            pass_score_model = PassScoreModel()
-            pass_score_model.load_models()
-
-            # Get current xT for reference
-            current_xT = pass_score_model.get_current_xT(
+            # PASS MODEL 
+            current_xT = app.pass_score_model.get_current_xT(
                 ball_position, attackers, defenders, keepers
             )
             actions["current_xT"] = normalize_value("xT", current_xT)
 
-            # Calculate pass scores for all targets
-            pass_scores = pass_score_model.calculate_pass_scores(
+            pass_scores = app.pass_score_model.calculate_pass_scores(
                 ball_position=ball_position,
                 attackers=attackers,
                 defenders=defenders,
@@ -481,6 +504,7 @@ def start_app():
                 ball_id=ball_id,
                 data_dict=data_dict
             )
+
 
             # Format pass results for frontend
             for player_id, metrics in pass_scores.items():
