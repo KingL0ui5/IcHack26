@@ -2,6 +2,9 @@
 flask
 flask-cors
 
+--extra-index-url https://download.pytorch.org/whl/cpu
+--only-binary torch
+
 # Data Processing
 pandas
 numpy
@@ -13,7 +16,7 @@ xgboost
 joblib
 
 # Deep Learning
-torch
+torch==2.8.0
 
 # Data Visualization
 matplotlib

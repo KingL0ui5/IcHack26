@@ -10,6 +10,7 @@ import math
 import dotenv
 import joblib
 import lightgbm as lgb
+from functools import lru_cache
 from backend.generalpv.scale_metrics import normalize_value
 dotenv.load_dotenv()
 
