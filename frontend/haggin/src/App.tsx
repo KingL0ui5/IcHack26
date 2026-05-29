@@ -5,7 +5,7 @@ import type { Preset } from './presets';
 import { FORMATION_PRESETS, SITUATION_PRESETS } from './presets';
 import type { GenerationStatus } from './types';
 import { INITIAL_PLAYERS, INITIAL_BALL_CARRIER, PITCH_WIDTH, PITCH_HEIGHT } from './constants';
-import { generateSituation, AIError, fetchPlayerMetrics } from './llm';
+import { generateSituation, AIError} from './llm';
 import { PlayerInfo } from './components/PlayerInfo';
 import BrandingImage from './components/BrandingImage.tsx';
 
