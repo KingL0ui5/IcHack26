@@ -362,11 +362,14 @@ def start_app():
             "shots": 0
         }
 
-    @app.route("/", methods=["POST"])
+    @app.route("/", methods=["POST", "OPTIONS"])
     def predictions():
         """
         Generate predictions for best actions given all player positions.
         """
+        if request.method == "OPTIONS":
+            return ("", 204)
+
         if request.method == "POST":
             data = request.get_json()
 
@@ -494,11 +497,14 @@ def start_app():
 
             return json.dumps(actions)
 
-    @app.route("/generate-positions", methods=["GET"])
+    @app.route("/generate-positions", methods=["GET", "OPTIONS"])
     def generate_positions():
         """
         Call Claude to generate player positions based on input situation
         """
+        if request.method == "OPTIONS":
+            return ("", 204)
+
         if request.method == "GET":
             situation = request.args.get("situation", "")
 
