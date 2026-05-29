@@ -16,6 +16,7 @@ function App() {
   const [ballCarrier, setBallCarrier] = useState(INITIAL_BALL_CARRIER);
   const [generationStatus, setGenerationStatus] = useState<GenerationStatus>('idle');
   const [aiRefusalMessage, setAiRefusalMessage] = useState<string | null>(null);
+  const [generationErrorMessage, setGenerationErrorMessage] = useState<string | null>(null);
   const [customSituation, setCustomSituation] = useState('');
   const [selectedPlayerPosition, setSelectedPlayerPosition] = useState<{ x: number; y: number } | null>(null);
   const [isPitchFullscreen, setIsPitchFullscreen] = useState(false);
@@ -63,9 +64,13 @@ function App() {
     setPlayers(preset.players);
     setBallCarrier(preset.ballCarrier);
     setGenerationStatus('idle');
+    setAiRefusalMessage(null);
+    setGenerationErrorMessage(null);
   };
 
   const handleGenerateCustom = async (situation: string) => {
+    setAiRefusalMessage(null);
+    setGenerationErrorMessage(null);
     setGenerationStatus('loading');
     try {
       const result = await generateSituation(situation);
@@ -75,8 +80,20 @@ function App() {
       setTimeout(() => setGenerationStatus('idle'), 3000);
     } catch (error) {
       setGenerationStatus('error');
-      if (error instanceof AIError && error.code === 'INAPPROPRIATE_PROMPT') setAiRefusalMessage(error.message);
-      setTimeout(() => { setGenerationStatus('idle'); setAiRefusalMessage(null); }, 5000);
+      if (error instanceof AIError) {
+        if (error.code === 'INAPPROPRIATE_PROMPT') {
+          setAiRefusalMessage(error.message);
+        } else {
+          setGenerationErrorMessage(error.message || 'Generation failed');
+        }
+      } else {
+        setGenerationErrorMessage('Generation failed');
+      }
+      setTimeout(() => {
+        setGenerationStatus('idle');
+        setAiRefusalMessage(null);
+        setGenerationErrorMessage(null);
+      }, 5000);
     }
   };
 
@@ -444,7 +461,7 @@ function App() {
 
             {generationStatus === 'error' && !aiRefusalMessage && (
               <div style={{ marginTop: '8px', padding: '8px', background: '#7f1d1d', borderRadius: '6px', fontSize: '12px' }}>
-                Generation failed
+                {generationErrorMessage || 'Generation failed'}
               </div>
             )}
 
