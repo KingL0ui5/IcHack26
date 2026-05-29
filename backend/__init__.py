@@ -462,7 +462,7 @@ def start_app():
 
             # ---------------- data processing done for required dict format: data_dict----------------#
             # saftey check 
-            if app.xg_model is None or app.pass_score_model is None or app.carry_model is None or app.xt_model is None:
+            if app.xg_model is None or app.pass_score_model is None or app.carry_model is None or app.xT_model is None:
                 return {"error": "Models failed to load on server startup."}, 500
             
 
