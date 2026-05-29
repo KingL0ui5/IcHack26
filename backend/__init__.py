@@ -287,6 +287,10 @@ def start_app():
         print(f"Error loading Pass Score model: {e}")
         app.pass_score_model = None
         
+
+    import gc
+    gc.collect()
+    logging.info("Garbage collection complete. Ready for traffic.")
     logging.info("All models loaded successfully!")
 
 
