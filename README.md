@@ -1,4 +1,6 @@
 # xHack
+## Note: 
+This version is not what was built during the hackathon - it is my forked version to be deployed to a web server. I am using renderer for the backend and vercel for the frontend. You can see the live version here ic-hack26-sigma.vercel.app.
 
 ## About xHack
 
