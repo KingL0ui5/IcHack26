@@ -245,14 +245,7 @@ def start_app():
 
     CORS(app, resources={r"/*": {"origins": "*"}})
 
-    @app.after_request
-    def add_cors_headers(response):
-        response.headers.setdefault("Access-Control-Allow-Origin", "*")
-        response.headers.setdefault("Access-Control-Allow-Headers", "Content-Type, Authorization")
-        response.headers.setdefault("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        return response
-
-    print("Initializing and loading ML models into memory... This may take a moment.")
+    logging.info("Initialising and loading ML models into memory... This may take a moment.")
     # Pre-load Expected Threat Model
     try:
         if MODEL_MODE == "nn":
@@ -399,13 +392,11 @@ def start_app():
             "shots": 0
         }
 
-    @app.route("/", methods=["POST", "OPTIONS"])
+    @app.route("/", methods=["POST"])
     def predictions():
         """
         Generate predictions for best actions given all player positions.
         """
-        if request.method == "OPTIONS":
-            return ("", 204)
 
         if request.method == "POST":
             data = request.get_json()
@@ -522,13 +513,11 @@ def start_app():
 
             return json.dumps(actions)
 
-    @app.route("/generate-positions", methods=["GET", "OPTIONS"])
+    @app.route("/generate-positions", methods=["GET"])
     def generate_positions():
         """
         Call Claude to generate player positions based on input situation
         """
-        if request.method == "OPTIONS":
-            return ("", 204)
 
         if request.method == "GET":
             situation = request.args.get("situation", "")
