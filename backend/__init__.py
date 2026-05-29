@@ -237,10 +237,7 @@ Ensure coordinates reflect the tactical situation described, formation requireme
 def start_app():
     app = Flask(__name__)
 
-    if os.getenv("VERCEL") is None:
-        CORS(app, origins=["http://localhost:5173",
-            "http://localhost:5174", "http://localhost:5175"], supports_credentials=True)
-
+    CORS(app)
     @app.route("/test", methods=["POST"])
     def test():
         """
@@ -487,7 +484,7 @@ def start_app():
 
         headers = {
             'Content-Type': 'application/json',
-            'x-api-key': dotenv.get_key(".env", "API_KEY"),
+            'x-api-key': os.getenv("API_KEY"),
             'anthropic-version': '2023-06-01',
         }
 
