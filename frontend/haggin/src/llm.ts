@@ -1,5 +1,6 @@
 import type { Player } from './types';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 interface BackendResponse {
   attackers: Array<{ x: number; y: number; id: string }>;
@@ -24,7 +25,7 @@ export class AIError extends Error {
 export async function generateSituation(situation: string): Promise<LLMResponse> {
   // Send situation to backend
   const response = await fetch(
-    `$/api/generate-positions?situation=${encodeURIComponent(situation)}`,
+    `${API_BASE_URL}/generate-positions?situation=${encodeURIComponent(situation)}`,
     {
       method: 'GET',
       headers: {
@@ -83,7 +84,7 @@ export async function generateSituation(situation: string): Promise<LLMResponse>
 // Fetch simple player metrics (xG, xT, etc) from backend for a given player id.
 // Backend should return a JSON object like: { xG: 0.02, xT: 0.01, shots: 1 }
 export async function fetchPlayerMetrics(playerId: string): Promise<Record<string, number>> {
-  const res = await fetch(`$/api/player-metrics?playerId=${encodeURIComponent(playerId)}`);
+  const res = await fetch(`${API_BASE_URL}/player-metrics?playerId=${encodeURIComponent(playerId)}`);
   if (!res.ok) {
     // return empty object on failure; caller can handle
     return {};
