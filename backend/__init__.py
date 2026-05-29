@@ -237,7 +237,14 @@ Ensure coordinates reflect the tactical situation described, formation requireme
 def start_app():
     app = Flask(__name__)
 
-    CORS(app)
+    CORS(app, resources={r"/*": {"origins": "*"}})
+
+    @app.after_request
+    def add_cors_headers(response):
+        response.headers.setdefault("Access-Control-Allow-Origin", "*")
+        response.headers.setdefault("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        response.headers.setdefault("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        return response
     @app.route("/test", methods=["POST"])
     def test():
         """
@@ -339,6 +346,21 @@ def start_app():
             import traceback
             traceback.print_exc()
             return {"error": f"Server error: {str(e)}"}, 500
+
+    @app.route("/player-metrics", methods=["GET"])
+    def player_metrics():
+        """
+        Return basic per-player metrics for the requested player.
+        """
+        player_id = request.args.get("playerId")
+        if not player_id:
+            return {"error": "Missing playerId"}, 400
+
+        return {
+            "xG": 0.0,
+            "xT": 0.0,
+            "shots": 0
+        }
 
     @app.route("/", methods=["POST"])
     def predictions():
@@ -480,11 +502,18 @@ def start_app():
         if request.method == "GET":
             situation = request.args.get("situation", "")
 
+        api_key = os.getenv("API_KEY")
+        if not api_key:
+            return {
+                "error": "missing_api_key",
+                "message": "Anthropic API key is not set on the server."
+            }, 503
+
         url = 'https://api.anthropic.com/v1/messages'
 
         headers = {
             'Content-Type': 'application/json',
-            'x-api-key': os.getenv("API_KEY"),
+            'x-api-key': api_key,
             'anthropic-version': '2023-06-01',
         }
 
@@ -547,6 +576,28 @@ def start_app():
                 print("JSON parse error:", str(e))
                 return {"error": "Failed to parse model output", "raw": raw_content}, 500
         else:
-            return response.json(), response.status_code
+            try:
+                error_payload = response.json()
+            except ValueError:
+                return {
+                    "error": "llm_error",
+                    "message": "Anthropic request failed."
+                }, response.status_code
+
+            message = None
+            error_type = None
+            if isinstance(error_payload, dict):
+                error_obj = error_payload.get("error")
+                if isinstance(error_obj, dict):
+                    message = error_obj.get("message")
+                    error_type = error_obj.get("type")
+                else:
+                    message = error_payload.get("message")
+                    error_type = error_payload.get("type")
+
+            return {
+                "error": error_type or "llm_error",
+                "message": message or "Anthropic request failed."
+            }, response.status_code
 
     return app
