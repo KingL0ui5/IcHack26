@@ -9,6 +9,8 @@ import { generateSituation, AIError, fetchPlayerMetrics } from './llm';
 import { PlayerInfo } from './components/PlayerInfo';
 import BrandingImage from './components/BrandingImage.tsx';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+
 function App() {
   const [players, setPlayers] = useState<Player[]>(INITIAL_PLAYERS);
   const [ballCarrier, setBallCarrier] = useState(INITIAL_BALL_CARRIER);
@@ -55,8 +57,6 @@ function App() {
   useEffect(() => {
     const p = players.find((pl) => pl.id === ballCarrier);
     setSelectedPlayerPosition(p ? p.position : null);
-    if (!ballCarrier) return;
-    fetchPlayerMetrics(ballCarrier);
   }, [ballCarrier, players]);
 
   const handleLoadPreset = (preset: Preset) => {
@@ -86,7 +86,7 @@ function App() {
       const attackers = players.filter((p) => p.type === 'attacker').map((p) => ({ x: p.position.x, y: p.position.y, id: p.id, team: 1 }));
       const defenders = players.filter((p) => p.type === 'defender').map((p) => ({ x: p.position.x, y: p.position.y, id: p.id, team: 0 }));
       const keepers = players.filter(p => p.id === '1' || p.id === 'd1').map(p => ({ x: p.position.x, y: p.position.y, id: p.id, team: p.id === '1' ? 1 : 0 }));
-      const resp = await fetch('/api/', {
+      const resp = await fetch(`${API_BASE_URL}/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ attackers, defenders, keepers, ball_id: ballCarrier })
@@ -102,7 +102,7 @@ function App() {
       const attackers = players.filter((p) => p.type === 'attacker').map((p) => ({ x: p.position.x, y: p.position.y, id: p.id, team: 1 }));
       const defenders = players.filter((p) => p.type === 'defender').map((p) => ({ x: p.position.x, y: p.position.y, id: p.id, team: 0 }));
       const keepers = players.filter(p => p.id === '1' || p.id === 'd1').map(p => ({ x: p.position.x, y: p.position.y, id: p.id, team: p.id === '1' ? 1 : 0 }));
-      const resp = await fetch('/api/test', {
+      const resp = await fetch(`${API_BASE_URL}/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ attackers, defenders, keepers, ball_id: ballCarrier })
