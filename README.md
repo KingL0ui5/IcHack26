@@ -1,6 +1,6 @@
 # xHack
 ## Note: 
-This version is not what was built during the hackathon - it is my forked version to be deployed to a web server. I am using Renderer for the backend and Vercel for the frontend. You can see the live version [here](https://ichack26.onrender.com). Please note that the backend is being hosted for free on Renderer, so the app will stop working briefly if the memory limit is exceeded - which happens regularly considering it is loading 4 substantial models - and patience is required for the first request to the server while it 'spins up'.
+This version is not what was built during the hackathon - it is my forked version to be deployed to a web server. I am using Renderer for the backend and Vercel for the frontend. You can see the live version [here](https://ic-hack26-tan.vercel.app/). Please note that the backend is being hosted for free on Renderer, so the app will stop working briefly if the memory limit is exceeded - which happens regularly considering it is loading 4 substantial models - and patience is required for the first request to the server while it 'spins up'.
 
 ## About xHack
 
